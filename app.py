@@ -51,12 +51,24 @@ if mode == "Upload File":
 
 # Webcam mode
 if mode == "Open Webcam":
-    st.info("Mengakses webcam melalui browser...")
-    ctx = webrtc_streamer(
-        key="smile-detect",
+    camera_facing = st.selectbox(
+        "Pilih Kamera:",
+        options=["Depan", "Belakang"],
+        index=0,
+    )
+
+    facing_mode = "user" if camera_facing == "Depan" else "environment"
+
+    st.info(f"Mengakses kamera {camera_facing.lower()}...")
+
+    webrtc_streamer(
+        key=f"smile-detect-{facing_mode}",  # gunakan key unik agar swap kamera berefek
         mode=WebRtcMode.SENDRECV,
         video_processor_factory=SmileVideoProcessor,
-        media_stream_constraints={"video": {"facingMode": "environment"}, "audio": False},
+        media_stream_constraints={
+            "video": {"facingMode": facing_mode},
+            "audio": False,
+        },
         async_processing=True,
     )
 
