@@ -6,7 +6,10 @@ from PIL import Image
 import tempfile
 import os
 import time
+from streamlit_webrtc import webrtc_streamer, VideoProcessorBase, WebRtcMode
+import av
 
+        
 st.title ("SMILE DETECTION") 
 # Buat folder output jika belum ada
 os.makedirs("output", exist_ok=True)
@@ -15,6 +18,12 @@ container = st.container()
 st.caption ("Smile — it's the simplest way to brighten the world.")
 st.write("Selamat datang di Smile Detection, sebuah aplikasi cerdas yang bisa mengenali senyum secara otomatis dari foto, video, bahkan secara real-time lewat webcam!🥰")
 
+class SmileVideoProcessor(VideoProcessorBase):
+    def recv(self, frame):
+        img = frame.to_ndarray(format="bgr24")
+        result = detect_smiles(img.copy())
+        return av.VideoFrame.from_ndarray(result, format="bgr24")
+        
 # Pilih Mode
 mode = st.radio("Pilih Mode:", ["Upload File", "Open Webcam"])
 
@@ -48,28 +57,14 @@ if st.button("Proses"):
     if mode == "Upload File" and uploaded_file is None:
         st.warning("Silakan upload file terlebih dahulu.")
     elif mode == "Open Webcam":
-        st.info("Mengakses webcam...")
-        cap = cv2.VideoCapture(0)
-        out_path = "output/webcam_output.avi"
-        fourcc = cv2.VideoWriter_fourcc(*'XVID')
-        out = cv2.VideoWriter(out_path, fourcc, 20.0, (640, 480))
-
-        stframe = st.empty()
-        stop = st.button("Stop Webcam")
-
-        while cap.isOpened():
-            ret, frame = cap.read()
-            if not ret or stop:
-                break
-            result = detect_smiles(frame.copy())
-            out.write(result)
-            stframe.image(result, channels="BGR")
-
-        cap.release()
-        out.release()
-        st.success("Proses selesai.")
-        with open(out_path, "rb") as f:
-            st.download_button("Download Hasil Webcam", f, file_name="webcam_output.avi")
+        st.info("Mengakses webcam melalui browser...")
+        webrtc_streamer(
+            key="smile-detect",
+            mode=WebRtcMode.SENDRECV,
+            video_processor_factory=SmileVideoProcessor,
+            media_stream_constraints={"video": True, "audio": False},
+            async_processing=True,
+        )
     
     elif uploaded_file:
         if "image" in uploaded_file.type:
