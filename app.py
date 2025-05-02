@@ -9,25 +9,31 @@ import time
 from streamlit_webrtc import webrtc_streamer, VideoProcessorBase, WebRtcMode
 import av
 
-        
-st.title ("SMILE DETECTION") 
+st.title("SMILE DETECTION")
+
 # Buat folder output jika belum ada
 os.makedirs("output", exist_ok=True)
 
-container = st.container()
-st.caption ("Smile — it's the simplest way to brighten the world.")
+st.caption("Smile — it's the simplest way to brighten the world.")
 st.write("Selamat datang di Smile Detection, sebuah aplikasi cerdas yang bisa mengenali senyum secara otomatis dari foto, video, bahkan secara real-time lewat webcam!🥰")
 
+# Buffer frame webcam
+webcam_frames = []
+
 class SmileVideoProcessor(VideoProcessorBase):
+    def __init__(self):
+        self.frames = []
+
     def recv(self, frame):
         img = frame.to_ndarray(format="bgr24")
         result = detect_smiles(img.copy())
+        self.frames.append(result)  # Simpan frame ke buffer
+        webcam_frames.append(result)
         return av.VideoFrame.from_ndarray(result, format="bgr24")
-        
+
 # Pilih Mode
 mode = st.radio("Pilih Mode:", ["Upload File", "Open Webcam"])
 
-# Upload file
 uploaded_file = None
 video_file_path = None
 
@@ -43,30 +49,31 @@ if mode == "Upload File":
             tfile.write(uploaded_file.read())
             video_file_path = tfile.name
 
-# Tombol Proses
+# Webcam mode
 if mode == "Open Webcam":
-        st.info("Mengakses webcam melalui browser...")
-        webrtc_streamer(
-            key="smile-detect",
-            mode=WebRtcMode.SENDRECV,
-            video_processor_factory=SmileVideoProcessor,
-            media_stream_constraints={"video": True, "audio": False},
-            async_processing=True,
-        )
-        
+    st.info("Mengakses webcam melalui browser...")
+    ctx = webrtc_streamer(
+        key="smile-detect",
+        mode=WebRtcMode.SENDRECV,
+        video_processor_factory=SmileVideoProcessor,
+        media_stream_constraints={"video": True, "audio": False},
+        async_processing=True,
+    )
+
+# Tombol Proses
 if st.button("Proses"):
     progress_text = "Operation in progress. Please wait."
     my_bar = st.progress(0, text=progress_text)
 
     for percent_complete in range(100):
-        time.sleep(0.01)
+        time.sleep(0.005)
         my_bar.progress(percent_complete + 1, text=progress_text)
-    time.sleep(1)
     my_bar.empty()
+
     if mode == "Upload File" and uploaded_file is None:
         st.warning("Silakan upload file terlebih dahulu.")
-        
-    elif uploaded_file:
+
+    elif mode == "Upload File" and uploaded_file:
         if "image" in uploaded_file.type:
             result = detect_smiles(uploaded_image.copy())
             output_path = "output/labeled_image.jpg"
@@ -74,14 +81,14 @@ if st.button("Proses"):
             st.image(result, channels="BGR", caption="Hasil Deteksi")
             with open(output_path, "rb") as f:
                 st.download_button("Download Gambar", f, file_name="labeled_image.jpg")
-        
+
         elif "video" in uploaded_file.type:
             stframe = st.empty()
             cap = cv2.VideoCapture(video_file_path)
             width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
             height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
             fps = int(cap.get(cv2.CAP_PROP_FPS))
-            output_path = "output/labeled_video.mp4"
+            output_path = "output/labeled_video.avi"
             out = cv2.VideoWriter(output_path, cv2.VideoWriter_fourcc(*'XVID'), fps, (width, height))
 
             while cap.isOpened():
@@ -95,12 +102,20 @@ if st.button("Proses"):
             out.release()
             st.success("Video selesai diproses.")
             with open(output_path, "rb") as f:
-                progress_text = "Operation in progress. Please wait."
-                my_bar = st.progress(0, text=progress_text)
-
-                for percent_complete in range(100):
-                    time.sleep(0.01)
-                    my_bar.progress(percent_complete + 1, text=progress_text)
-                time.sleep(1)
-                my_bar.empty()
                 st.download_button("Download Video", f, file_name="labeled_video.avi")
+
+    elif mode == "Open Webcam":
+        if len(webcam_frames) == 0:
+            st.warning("Belum ada video dari webcam.")
+        else:
+            # Simpan hasil rekaman webcam
+            height, width, _ = webcam_frames[0].shape
+            output_path = "output/webcam_result.avi"
+            out = cv2.VideoWriter(output_path, cv2.VideoWriter_fourcc(*'XVID'), 10, (width, height))
+            for frame in webcam_frames:
+                out.write(frame)
+            out.release()
+
+            st.video(output_path)
+            with open(output_path, "rb") as f:
+                st.download_button("Download Video Webcam", f, file_name="webcam_result.avi")
