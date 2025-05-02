@@ -61,61 +61,47 @@ if mode == "Open Webcam":
     )
 
 # Tombol Proses
-if st.button("Proses"):
-    progress_text = "Operation in progress. Please wait."
-    my_bar = st.progress(0, text=progress_text)
+if mode == "Upload File":
+    if st.button("Proses"):
+        progress_text = "Operation in progress. Please wait."
+        my_bar = st.progress(0, text=progress_text)
+    
+        for percent_complete in range(100):
+            time.sleep(0.005)
+            my_bar.progress(percent_complete + 1, text=progress_text)
+        my_bar.empty()
+    
+        if mode == "Upload File" and uploaded_file is None:
+            st.warning("Silakan upload file terlebih dahulu.")
+    
+        elif mode == "Upload File" and uploaded_file:
+            if "image" in uploaded_file.type:
+                result = detect_smiles(uploaded_image.copy())
+                output_path = "output/labeled_image.jpg"
+                cv2.imwrite(output_path, result)
+                st.image(result, channels="BGR", caption="Hasil Deteksi")
+                with open(output_path, "rb") as f:
+                    st.download_button("Download Gambar", f, file_name="labeled_image.jpg")
+    
+            elif "video" in uploaded_file.type:
+                stframe = st.empty()
+                cap = cv2.VideoCapture(video_file_path)
+                width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+                height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+                fps = int(cap.get(cv2.CAP_PROP_FPS))
+                output_path = "output/labeled_video.avi"
+                out = cv2.VideoWriter(output_path, cv2.VideoWriter_fourcc(*'XVID'), fps, (width, height))
+    
+                while cap.isOpened():
+                    ret, frame = cap.read()
+                    if not ret:
+                        break
+                    result = detect_smiles(frame.copy())
+                    out.write(result)
+                    stframe.image(result, channels="BGR")
+                cap.release()
+                out.release()
+                st.success("Video selesai diproses.")
+                with open(output_path, "rb") as f:
+                    st.download_button("Download Video", f, file_name="labeled_video.avi")
 
-    for percent_complete in range(100):
-        time.sleep(0.005)
-        my_bar.progress(percent_complete + 1, text=progress_text)
-    my_bar.empty()
-
-    if mode == "Upload File" and uploaded_file is None:
-        st.warning("Silakan upload file terlebih dahulu.")
-
-    elif mode == "Upload File" and uploaded_file:
-        if "image" in uploaded_file.type:
-            result = detect_smiles(uploaded_image.copy())
-            output_path = "output/labeled_image.jpg"
-            cv2.imwrite(output_path, result)
-            st.image(result, channels="BGR", caption="Hasil Deteksi")
-            with open(output_path, "rb") as f:
-                st.download_button("Download Gambar", f, file_name="labeled_image.jpg")
-
-        elif "video" in uploaded_file.type:
-            stframe = st.empty()
-            cap = cv2.VideoCapture(video_file_path)
-            width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-            height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-            fps = int(cap.get(cv2.CAP_PROP_FPS))
-            output_path = "output/labeled_video.avi"
-            out = cv2.VideoWriter(output_path, cv2.VideoWriter_fourcc(*'XVID'), fps, (width, height))
-
-            while cap.isOpened():
-                ret, frame = cap.read()
-                if not ret:
-                    break
-                result = detect_smiles(frame.copy())
-                out.write(result)
-                stframe.image(result, channels="BGR")
-            cap.release()
-            out.release()
-            st.success("Video selesai diproses.")
-            with open(output_path, "rb") as f:
-                st.download_button("Download Video", f, file_name="labeled_video.avi")
-
-    elif mode == "Open Webcam":
-        if len(webcam_frames) == 0:
-            st.warning("Belum ada video dari webcam.")
-        else:
-            # Simpan hasil rekaman webcam
-            height, width, _ = webcam_frames[0].shape
-            output_path = "output/webcam_result.avi"
-            out = cv2.VideoWriter(output_path, cv2.VideoWriter_fourcc(*'XVID'), 10, (width, height))
-            for frame in webcam_frames:
-                out.write(frame)
-            out.release()
-
-            st.video(output_path)
-            with open(output_path, "rb") as f:
-                st.download_button("Download Video Webcam", f, file_name="webcam_result.avi")
