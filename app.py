@@ -56,7 +56,7 @@ if mode == "Open Webcam":
         key="smile-detect",
         mode=WebRtcMode.SENDRECV,
         video_processor_factory=SmileVideoProcessor,
-        media_stream_constraints={"video": True, "audio": False},
+        media_stream_constraints={"video": {"facingMode": "environment"}, "audio": False},
         async_processing=True,
     )
 
