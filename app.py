@@ -44,7 +44,16 @@ if mode == "Upload File":
             video_file_path = tfile.name
 
 # Tombol Proses
-
+if mode == "Open Webcam":
+        st.info("Mengakses webcam melalui browser...")
+        webrtc_streamer(
+            key="smile-detect",
+            mode=WebRtcMode.SENDRECV,
+            video_processor_factory=SmileVideoProcessor,
+            media_stream_constraints={"video": True, "audio": False},
+            async_processing=True,
+        )
+        
 if st.button("Proses"):
     progress_text = "Operation in progress. Please wait."
     my_bar = st.progress(0, text=progress_text)
@@ -56,16 +65,7 @@ if st.button("Proses"):
     my_bar.empty()
     if mode == "Upload File" and uploaded_file is None:
         st.warning("Silakan upload file terlebih dahulu.")
-    elif mode == "Open Webcam":
-        st.info("Mengakses webcam melalui browser...")
-        webrtc_streamer(
-            key="smile-detect",
-            mode=WebRtcMode.SENDRECV,
-            video_processor_factory=SmileVideoProcessor,
-            media_stream_constraints={"video": True, "audio": False},
-            async_processing=True,
-        )
-    
+        
     elif uploaded_file:
         if "image" in uploaded_file.type:
             result = detect_smiles(uploaded_image.copy())
